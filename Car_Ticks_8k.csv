@@ -1,0 +1,10 @@
+Ticker,Name,Country,parent,Comments
+TSLA,Tesla,USA,,
+F,Ford,USA,Ford Motor Co,owns Ford and Lincoln
+FCAU,Fiat Chrysler,USA,Fiat Chrysler Automobiles,"owns Alfa Romeo, Chrysler, Dodge, Fiat, Jeep, Maserati, and Ram"
+GM,GM,USA,General Motors,"owns Buick, Cadillac, Chevrolet, and GMC"
+DAI.DE,Mercedes,GER,Daimler AG,owns Mercedes-Benz and Smart
+BMWYY,BMW,GER,BMW Group,"owns BMW, Mini, and Rolls-Royce"
+VWAGY,Volkswagen,GER,Volkswagen Group," owns Audi, Bentley, Bugatti, Lamborghini, Porsche, and Volkswagen"
+TM,Toyota,JPN,Toyota Motor Corp,owns Lexus and Toyota
+HYMTF,Hyundai,KOR,Hyundai Motor Group,"owns Genesis, Hyundai, and Kia"
