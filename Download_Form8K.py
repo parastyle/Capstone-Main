@@ -92,8 +92,9 @@ data = []
 form8kdf = pd.DataFrame([])
 
 #Loop for years
-for iYear in range(2013,2019,1):
+for iYear in range(2008,2019,1):
     #Loop of quarters
+
     for quarter in quarters:
         #Quarter url
         secUrl = "https://www.sec.gov/Archives/edgar/daily-index/" + str(iYear) + "/"+ quarter + '/'
@@ -111,20 +112,42 @@ for iYear in range(2013,2019,1):
         #Loop through each idx file and save it to local drive
         #Read only master files, it pipe(|) seperated and easy to read
         for index, row in df.iterrows():
-            if row[0].startswith( 'master' ):
+            fileCheck = False
+            
+            if (row[0].startswith( 'master') or row[0].startswith( 'form')):
+                if ((iYear==2011) and (quarter in ['QTR3', 'QTR4'])):
+                    if row[0].startswith( 'form'):
+                        fileCheck = True
+                else:
+                    if row[0].startswith( 'master'):
+                        fileCheck = True
+                        
+            if fileCheck:
                 idxUrl = "https://www.sec.gov/Archives/edgar/daily-index/" + str(iYear) + "/" + quarter + '/' + row[0]
                 file_content = requests.get(idxUrl)
+                print(idxUrl)
                 
                 #if file is gzip file
                 if row[0].endswith('.gz'):
                     #Read bytes
                     zipFileContent = BytesIO(file_content.content)
                     
-                    #Convert to rows and get output
-                    with gzip.GzipFile(fileobj=zipFileContent) as file8kRows:
-                        records = [tuple((str(line).rstrip().replace('\\n', '').replace('b\'', '').replace('\'', '') + '|' + ticker).split('|')) 
-                                    for line in file8kRows.readlines() if ((str(line).find("|edgar/data") > 0) and (str(line).find("|8-K") > 0)) 
-                                        for company, ticker in companies.items() if (str(line.lower()).find('|' + company.lower()) > 0)]
+                    if ((iYear==2011) and (quarter in ['QTR3', 'QTR4'])):
+                        with gzip.GzipFile(fileobj=zipFileContent) as file8kRows:
+                            records = [tuple((str(line).rstrip().replace('\\n', '').replace('b\'', '').replace('\'', '')[74:85] + '|' + 
+                                              str(line).rstrip().replace('\\n', '').replace('b\'', '').replace('\'', '')[12:73] + '|' + 
+                                              str(line).rstrip().replace('\\n', '').replace('b\'', '').replace('\'', '')[0:11] + '|' + 
+                                              str(line).rstrip().replace('\\n', '').replace('b\'', '').replace('\'', '')[86:97] + '|' + 
+                                              str(line).rstrip().replace('\\n', '').replace('b\'', '').replace('\'', '')[98:141] + '|' + 
+                                              ticker).split('|')) 
+                                        for line in file8kRows.readlines() if ((str(line).find("edgar/data") > 0) and (str(line).startswith("b\'8-K"))) 
+                                            for company, ticker in companies.items() if (str(line.lower()).find(company.lower()) > 0)]
+                    else:
+                        #Convert to rows and get output
+                        with gzip.GzipFile(fileobj=zipFileContent) as file8kRows:
+                            records = [tuple((str(line).rstrip().replace('\\n', '').replace('b\'', '').replace('\'', '') + '|' + ticker).split('|')) 
+                                        for line in file8kRows.readlines() if ((str(line).find("|edgar/data") > 0) and (str(line).find("|8-K") > 0)) 
+                                            for company, ticker in companies.items() if (str(line.lower()).find('|' + company.lower()) > 0)]
                 else:
                     #Get matching recored, that is 8-K filing and belongs to interested companies
                     records = [tuple((str(line).rstrip().replace('\\n', '').replace('b\'', '').replace('\'', '') + '|' + ticker).split('|')) 
