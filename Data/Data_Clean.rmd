@@ -1,0 +1,610 @@
+---
+title: "Untitled"
+author: "Christopher Estevez"
+date: "November 1, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# R used is R-3.3.1 using windows 10 64bit
+
+library(readxl) #ver 1.0.0
+library(dplyr)#ver 0.7.4
+library(tidyr) #ver 0.8.0
+library(lubridate) #ver 1.7.4
+library(stringr) #ver 1.3.0
+```
+
+# unemployment
+```{r}
+
+un_file_loc ="Original/Economic/unemploymentdate_SeriesReport-20181028014816_166123.xlsx"
+
+
+File_unemployment = read_excel(un_file_loc,range ="A12:M23")
+File_unemployment =  File_unemployment %>% gather("Month","UEMP_Rate",2:13)
+
+
+File_unemployment$mNum= match(File_unemployment$Month,month.abb)
+File_unemployment$mNum = str_pad(File_unemployment$mNum, 2, pad = "0")
+
+File_unemployment = File_unemployment %>% unite("date",c("Year","mNum"),remove = T,sep = "-")
+
+File_unemployment$Month = NULL
+
+rm(un_file_loc)
+```
+
+#Interest rate
+```{r}
+# cleaned and joined rate and unemployment
+
+in_file_loc ="Original/Economic/Fed_interest_rate-01012008-11152018.xls"
+
+File_interest = read_excel(in_file_loc,range ="A5:C2740")
+File_interest[,2]= NULL
+colnames(File_interest)= c("Date","EFFR_Rate")
+
+File_interest$Date = gsub("\\[r]$","",File_interest$Date)
+
+File_interest =File_interest %>% separate(Date,c("y","m","d"),remove = F,sep = "-") %>% unite("comdate",c("y","m"),remove = F,sep = "-") %>% left_join(File_unemployment,by = c("comdate"="date"))
+
+File_interest$comdate = NULL
+File_interest$m= NULL
+File_interest$d= NULL
+
+
+rm(in_file_loc,File_unemployment)
+```
+
+#Tick F
+```{r}
+
+File_loc= "Original/Ticks/F Key Ratios.csv"
+
+
+
+Financials = read.csv(File_loc,strip.white = T,stringsAsFactors = F,fill = T,skip = 2,nrows = 15)
+
+margin_sales = read.csv(File_loc,strip.white = T,stringsAsFactors = F,fill = T,skip = 20,nrows = 8)
+
+Profitability = read.csv(File_loc,strip.white = T,stringsAsFactors = F,fill = T,skip = 31,nrows = 8)
+
+
+
+cash_flow = read.csv(File_loc,strip.white = T,stringsAsFactors = F,fill = T,skip = 65,nrows = 5)
+
+
+efficiency_ratios = read.csv(File_loc,strip.white = T,stringsAsFactors = F,fill = T,skip = 102,nrows = 9)
+
+
+
+growth = read.csv(File_loc,strip.white = T,stringsAsFactors = F,fill = T,skip = 42,nrows = 20)
+
+financial_health = read.csv(File_loc,strip.white = T,stringsAsFactors = F,fill = T,skip = 73,nrows = 20)
+
+Liquidity = read.csv(File_loc,strip.white = T,stringsAsFactors = F,fill = T,skip = 95,nrows = 4)
+
+rm(File_loc)
+
+
+#----------------------------------data transformation-----------
+final_df = data.frame()
+vec = c("variables","2008","2009","2010","2011","2012","2013","2014","2015","2016","2017","2018")
+
+
+finan = rbind(Financials[c(5,7,9),])
+colnames(finan) = vec
+finan[1,1] =c("Finan_Net_Income")
+finan[2,1] =c("Finan_Dividend")
+finan[3,1] =c("Finan_Shares_Mil")
+#finan[,12]=NA
+
+mar_sales = rbind(margin_sales[c(2,3,7),])
+colnames(mar_sales) = vec
+mar_sales[1,1] =c("Mar_Sales_COGS")
+mar_sales[2,1] =c("Mar_Sales_Gross_Margin")
+mar_sales[3,1] =c("Mar_Sales_Operating_Margin")
+#mar_sales[,12]=NA
+
+profit = rbind(Profitability[c(3,4,6,7),])
+colnames(profit) = vec
+profit[1,1] =c("Profit_Asset_Turnover_AVG")
+profit[2,1] =c("Profit_Return_Assets%")
+profit[3,1] =c("Profit_Return_Equity%")
+profit[4,1] =c("Profit_Return_Invested_Capital%")
+#profit[,12]=NA
+
+grow = rbind(growth[c(12,17),])
+colnames(grow) = vec
+grow[1,1] =c("Grow_Net_Income%_YOY")
+grow[2,1] =c("Grow_EPS%_YOY")
+
+cf = rbind(cash_flow[5,])
+colnames(cf) = vec
+cf[1,1] = c("CF_Free_Cash_Flow_to_Net_Income")
+#cf[,12]=NA
+
+
+liquid = rbind(Liquidity[1:4,])
+colnames(liquid) = vec
+liquid[1,1] =c("Liquid_Current_Ratio")
+liquid[2,1] =c("Liquid_Quick_Ratio")
+liquid[3,1] =c("Liquid_Financial_Leverage")
+liquid[4,1] =c("Liquid_Debt_to_Equity")
+
+
+eff_ratio = rbind(efficiency_ratios[1:8,])
+colnames(eff_ratio) = vec
+eff_ratio[1,1] =c("Eff_Ratio_Days_Sales_Outstanding")
+eff_ratio[2,1] =c("Eff_Ratio_Days_Inventory")
+eff_ratio[3,1] =c("Eff_Ratio_Payables_Period")
+eff_ratio[4,1] =c("Eff_Ratio_Cash_Conversion_Cycle")
+eff_ratio[5,1] =c("Eff_Ratio_Receivables_Turnover")
+eff_ratio[6,1] =c("Eff_Ratio_Inventory_Turnover")
+eff_ratio[7,1] =c("Eff_Ratio_Fixed_Assets_Turnover")
+eff_ratio[8,1] =c("Eff_Ratio_Asset_Turnover")
+#eff_ratio[,12]=NA
+
+final_df = rbind(finan,mar_sales,profit,grow,cf,liquid,eff_ratio)
+
+
+rm(finan,mar_sales,profit,grow,cf,liquid,eff_ratio,vec)
+rm(cash_flow,efficiency_ratios,financial_health,Financials,growth,Liquidity,margin_sales,Profitability)
+
+# converted the dF to features
+final_df = final_df %>% gather("Year","n",2:12)%>% spread(variables,n)
+
+#convert dividend and to true and false
+final_df$Finan_Net_Income = as.numeric(gsub(",","",final_df$Finan_Net_Income))
+final_df$Finan_Shares_Mil = as.numeric(gsub(",","",final_df$Finan_Shares_Mil))
+
+final_df$Finan_Dividend = as.numeric(final_df$Finan_Dividend)
+
+#convert net income and dividend to true or false
+#income true if positive
+#dividend true if given by company
+
+final_df$Finan_Net_Income = ifelse(final_df$Finan_Net_Income<0|is.na(final_df$Finan_Net_Income),0,1)
+
+final_df$Finan_Dividend = ifelse(final_df$Finan_Dividend<0|is.na(final_df$Finan_Dividend),0,1)
+
+#----------------------read ford output and merge----------------
+tech_file = read.csv("Output/tech_8k_1.2.2008-11.15.2018Ford.csv",strip.white = T,stringsAsFactors=FALSE,as.is = TRUE)
+
+tech_file$Symbol = "F"
+tech_file$YEAR = substr(tech_file$Day, start = 1, stop = 4)
+tech_file$Date = ymd(tech_file$Day)  
+
+File_interest$Date = ymd(File_interest$Date)
+
+#Final Merge
+
+Output =tech_file %>% left_join(File_interest,by = c("Date"="Date")) %>%left_join(final_df,by = c("YEAR"="Year"))
+  
+  
+
+Output$y = NULL
+Output$YEAR = NULL
+Output$Date = NULL
+
+
+
+write.csv(Output,"Output/Output_file_Ford-tech.csv",row.names = F,na = "")
+
+rm(final_df,Output,tech_file)
+
+```
+
+
+#Tick GM
+```{r}
+
+File_loc= "Original/Ticks/GM Key Ratios.csv"
+
+
+Financials = read.csv(File_loc,strip.white = T,stringsAsFactors = F,fill = T,skip = 2,nrows = 15)
+
+margin_sales = read.csv(File_loc,strip.white = T,stringsAsFactors = F,fill = T,skip = 20,nrows = 8)
+
+Profitability = read.csv(File_loc,strip.white = T,stringsAsFactors = F,fill = T,skip = 31,nrows = 8)
+
+
+
+cash_flow = read.csv(File_loc,strip.white = T,stringsAsFactors = F,fill = T,skip = 65,nrows = 5)
+
+
+efficiency_ratios = read.csv(File_loc,strip.white = T,stringsAsFactors = F,fill = T,skip = 102,nrows = 9)
+
+
+
+growth = read.csv(File_loc,strip.white = T,stringsAsFactors = F,fill = T,skip = 42,nrows = 20)
+
+financial_health = read.csv(File_loc,strip.white = T,stringsAsFactors = F,fill = T,skip = 73,nrows = 20)
+
+Liquidity = read.csv(File_loc,strip.white = T,stringsAsFactors = F,fill = T,skip = 95,nrows = 4)
+
+rm(File_loc)
+
+
+#----------------------------------data transformation-----------
+final_df = data.frame()
+vec = c("variables","2008","2009","2010","2011","2012","2013","2014","2015","2016","2017","2018")
+
+
+finan = rbind(Financials[c(5,7,9),])
+colnames(finan) = vec
+finan[1,1] =c("Finan_Net_Income")
+finan[2,1] =c("Finan_Dividend")
+finan[3,1] =c("Finan_Shares_Mil")
+#finan[,12]=NA
+
+mar_sales = rbind(margin_sales[c(2,3,7),])
+colnames(mar_sales) = vec
+mar_sales[1,1] =c("Mar_Sales_COGS")
+mar_sales[2,1] =c("Mar_Sales_Gross_Margin")
+mar_sales[3,1] =c("Mar_Sales_Operating_Margin")
+#mar_sales[,12]=NA
+
+profit = rbind(Profitability[c(3,4,6,7),])
+colnames(profit) = vec
+profit[1,1] =c("Profit_Asset_Turnover_AVG")
+profit[2,1] =c("Profit_Return_Assets%")
+profit[3,1] =c("Profit_Return_Equity%")
+profit[4,1] =c("Profit_Return_Invested_Capital%")
+#profit[,12]=NA
+
+grow = rbind(growth[c(12,17),])
+colnames(grow) = vec
+grow[1,1] =c("Grow_Net_Income%_YOY")
+grow[2,1] =c("Grow_EPS%_YOY")
+
+cf = rbind(cash_flow[5,])
+colnames(cf) = vec
+cf[1,1] = c("CF_Free_Cash_Flow_to_Net_Income")
+#cf[,12]=NA
+
+
+liquid = rbind(Liquidity[1:4,])
+colnames(liquid) = vec
+liquid[1,1] =c("Liquid_Current_Ratio")
+liquid[2,1] =c("Liquid_Quick_Ratio")
+liquid[3,1] =c("Liquid_Financial_Leverage")
+liquid[4,1] =c("Liquid_Debt_to_Equity")
+
+
+eff_ratio = rbind(efficiency_ratios[1:8,])
+colnames(eff_ratio) = vec
+eff_ratio[1,1] =c("Eff_Ratio_Days_Sales_Outstanding")
+eff_ratio[2,1] =c("Eff_Ratio_Days_Inventory")
+eff_ratio[3,1] =c("Eff_Ratio_Payables_Period")
+eff_ratio[4,1] =c("Eff_Ratio_Cash_Conversion_Cycle")
+eff_ratio[5,1] =c("Eff_Ratio_Receivables_Turnover")
+eff_ratio[6,1] =c("Eff_Ratio_Inventory_Turnover")
+eff_ratio[7,1] =c("Eff_Ratio_Fixed_Assets_Turnover")
+eff_ratio[8,1] =c("Eff_Ratio_Asset_Turnover")
+#eff_ratio[,12]=NA
+
+final_df = rbind(finan,mar_sales,profit,grow,cf,liquid,eff_ratio)
+
+
+rm(finan,mar_sales,profit,grow,cf,liquid,eff_ratio,vec)
+rm(cash_flow,efficiency_ratios,financial_health,Financials,growth,Liquidity,margin_sales,Profitability)
+
+# converted the dF to features
+final_df = final_df %>% gather("Year","n",2:12)%>% spread(variables,n)
+
+#convert dividend and to true and false
+final_df$Finan_Net_Income = as.numeric(gsub(",","",final_df$Finan_Net_Income))
+final_df$Finan_Shares_Mil = as.numeric(gsub(",","",final_df$Finan_Shares_Mil))
+
+final_df$Finan_Dividend = as.numeric(final_df$Finan_Dividend)
+
+#convert net income and dividend to true or false
+#income true if positive
+#dividend true if given by company
+
+final_df$Finan_Net_Income = ifelse(final_df$Finan_Net_Income<0|is.na(final_df$Finan_Net_Income),0,1)
+
+final_df$Finan_Dividend = ifelse(final_df$Finan_Dividend<0|is.na(final_df$Finan_Dividend),0,1)
+
+#----------------------read tech output and merge----------------
+tech_file = read.csv("Output/tech_8k_1.2.2008-11.15.2018GM.csv",strip.white = T,stringsAsFactors=FALSE,as.is = TRUE)
+
+#tech_file$Symbol = "F"
+tech_file$YEAR = substr(tech_file$Day, start = 1, stop = 4)
+tech_file$Date = ymd(tech_file$Day)  
+
+File_interest$Date = ymd(File_interest$Date)
+
+#Final Merge
+
+Output =tech_file %>% left_join(File_interest,by = c("Date"="Date")) %>%left_join(final_df,by = c("YEAR"="Year"))
+  
+  
+
+Output$y = NULL
+Output$YEAR = NULL
+Output$Date = NULL
+
+
+write.csv(Output,"Output/Output_file_GM-tech.csv",row.names = F,na = "")
+
+rm(final_df,Output,tech_file)
+
+```
+
+#Tick Toyota
+```{r}
+
+
+File_loc= "Original/Ticks/TM Key Ratios.csv"
+
+Financials = read.csv(File_loc,strip.white = T,stringsAsFactors = F,fill = T,skip = 2,nrows = 15)
+
+margin_sales = read.csv(File_loc,strip.white = T,stringsAsFactors = F,fill = T,skip = 20,nrows = 8)
+
+Profitability = read.csv(File_loc,strip.white = T,stringsAsFactors = F,fill = T,skip = 31,nrows = 8)
+
+
+
+cash_flow = read.csv(File_loc,strip.white = T,stringsAsFactors = F,fill = T,skip = 65,nrows = 5)
+
+
+efficiency_ratios = read.csv(File_loc,strip.white = T,stringsAsFactors = F,fill = T,skip = 102,nrows = 9)
+
+
+
+growth = read.csv(File_loc,strip.white = T,stringsAsFactors = F,fill = T,skip = 42,nrows = 20)
+
+financial_health = read.csv(File_loc,strip.white = T,stringsAsFactors = F,fill = T,skip = 73,nrows = 20)
+
+Liquidity = read.csv(File_loc,strip.white = T,stringsAsFactors = F,fill = T,skip = 95,nrows = 4)
+
+rm(File_loc)
+
+
+#----------------------------------data transformation-----------
+final_df = data.frame()
+vec = c("variables","2008","2009","2010","2011","2012","2013","2014","2015","2016","2017","2018")
+
+
+finan = rbind(Financials[c(5,7,9),])
+colnames(finan) = vec
+finan[1,1] =c("Finan_Net_Income")
+finan[2,1] =c("Finan_Dividend")
+finan[3,1] =c("Finan_Shares_Mil")
+#finan[,12]=NA
+
+mar_sales = rbind(margin_sales[c(2,3,7),])
+colnames(mar_sales) = vec
+mar_sales[1,1] =c("Mar_Sales_COGS")
+mar_sales[2,1] =c("Mar_Sales_Gross_Margin")
+mar_sales[3,1] =c("Mar_Sales_Operating_Margin")
+#mar_sales[,12]=NA
+
+profit = rbind(Profitability[c(3,4,6,7),])
+colnames(profit) = vec
+profit[1,1] =c("Profit_Asset_Turnover_AVG")
+profit[2,1] =c("Profit_Return_Assets%")
+profit[3,1] =c("Profit_Return_Equity%")
+profit[4,1] =c("Profit_Return_Invested_Capital%")
+#profit[,12]=NA
+
+grow = rbind(growth[c(12,17),])
+colnames(grow) = vec
+grow[1,1] =c("Grow_Net_Income%_YOY")
+grow[2,1] =c("Grow_EPS%_YOY")
+
+cf = rbind(cash_flow[5,])
+colnames(cf) = vec
+cf[1,1] = c("CF_Free_Cash_Flow_to_Net_Income")
+#cf[,12]=NA
+
+
+liquid = rbind(Liquidity[1:4,])
+colnames(liquid) = vec
+liquid[1,1] =c("Liquid_Current_Ratio")
+liquid[2,1] =c("Liquid_Quick_Ratio")
+liquid[3,1] =c("Liquid_Financial_Leverage")
+liquid[4,1] =c("Liquid_Debt_to_Equity")
+
+
+eff_ratio = rbind(efficiency_ratios[1:8,])
+colnames(eff_ratio) = vec
+eff_ratio[1,1] =c("Eff_Ratio_Days_Sales_Outstanding")
+eff_ratio[2,1] =c("Eff_Ratio_Days_Inventory")
+eff_ratio[3,1] =c("Eff_Ratio_Payables_Period")
+eff_ratio[4,1] =c("Eff_Ratio_Cash_Conversion_Cycle")
+eff_ratio[5,1] =c("Eff_Ratio_Receivables_Turnover")
+eff_ratio[6,1] =c("Eff_Ratio_Inventory_Turnover")
+eff_ratio[7,1] =c("Eff_Ratio_Fixed_Assets_Turnover")
+eff_ratio[8,1] =c("Eff_Ratio_Asset_Turnover")
+#eff_ratio[,12]=NA
+
+final_df = rbind(finan,mar_sales,profit,grow,cf,liquid,eff_ratio)
+
+
+rm(finan,mar_sales,profit,grow,cf,liquid,eff_ratio,vec)
+rm(cash_flow,efficiency_ratios,financial_health,Financials,growth,Liquidity,margin_sales,Profitability)
+
+# converted the dF to features
+final_df = final_df %>% gather("Year","n",2:12)%>% spread(variables,n)
+
+#convert dividend and to true and false
+final_df$Finan_Net_Income = as.numeric(gsub(",","",final_df$Finan_Net_Income))
+final_df$Finan_Shares_Mil = as.numeric(gsub(",","",final_df$Finan_Shares_Mil))
+
+final_df$Finan_Dividend = as.numeric(final_df$Finan_Dividend)
+
+#convert net income and dividend to true or false
+#income true if positive
+#dividend true if given by company
+
+final_df$Finan_Net_Income = ifelse(final_df$Finan_Net_Income<0|is.na(final_df$Finan_Net_Income),0,1)
+
+final_df$Finan_Dividend = ifelse(final_df$Finan_Dividend<0|is.na(final_df$Finan_Dividend),0,1)
+
+
+#----------------------read tech output and merge----------------
+tech_file = read.csv("Output/tech_8k_1.2.2008-11.15.2018TM.csv",strip.white = T,stringsAsFactors=FALSE,as.is = TRUE)
+
+#tech_file$Symbol = "F"
+tech_file$YEAR = substr(tech_file$Day, start = 1, stop = 4)
+tech_file$Date = ymd(tech_file$Day)  
+
+File_interest$Date = ymd(File_interest$Date)
+
+#Final Merge
+
+Output =tech_file %>% left_join(File_interest,by = c("Date"="Date")) %>%left_join(final_df,by = c("YEAR"="Year"))
+  
+  
+
+Output$y = NULL
+Output$YEAR = NULL
+Output$Date = NULL
+
+
+write.csv(Output,"Output/Output_file_Toyota-tech.csv",row.names = F,na = "")
+
+
+
+rm(final_df,Output,tech_file)
+
+```
+
+#Tick Tesla
+```{r}
+File_loc= "Original/Ticks/TSLA Key Ratios.csv"
+
+
+Financials = read.csv(File_loc,strip.white = T,stringsAsFactors = F,fill = T,skip = 2,nrows = 15)
+
+margin_sales = read.csv(File_loc,strip.white = T,stringsAsFactors = F,fill = T,skip = 20,nrows = 8)
+
+Profitability = read.csv(File_loc,strip.white = T,stringsAsFactors = F,fill = T,skip = 31,nrows = 8)
+
+
+
+cash_flow = read.csv(File_loc,strip.white = T,stringsAsFactors = F,fill = T,skip = 65,nrows = 5)
+
+
+efficiency_ratios = read.csv(File_loc,strip.white = T,stringsAsFactors = F,fill = T,skip = 102,nrows = 9)
+
+
+
+growth = read.csv(File_loc,strip.white = T,stringsAsFactors = F,fill = T,skip = 42,nrows = 20)
+
+financial_health = read.csv(File_loc,strip.white = T,stringsAsFactors = F,fill = T,skip = 73,nrows = 20)
+
+Liquidity = read.csv(File_loc,strip.white = T,stringsAsFactors = F,fill = T,skip = 95,nrows = 4)
+
+rm(File_loc)
+
+
+#----------------------------------data transformation-----------
+final_df = data.frame()
+vec = c("variables","2008","2009","2010","2011","2012","2013","2014","2015","2016","2017","2018")
+
+
+finan = rbind(Financials[c(5,7,9),])
+colnames(finan) = vec
+finan[1,1] =c("Finan_Net_Income")
+finan[2,1] =c("Finan_Dividend")
+finan[3,1] =c("Finan_Shares_Mil")
+#finan[,12]=NA
+
+mar_sales = rbind(margin_sales[c(2,3,7),])
+colnames(mar_sales) = vec
+mar_sales[1,1] =c("Mar_Sales_COGS")
+mar_sales[2,1] =c("Mar_Sales_Gross_Margin")
+mar_sales[3,1] =c("Mar_Sales_Operating_Margin")
+#mar_sales[,12]=NA
+
+profit = rbind(Profitability[c(3,4,6,7),])
+colnames(profit) = vec
+profit[1,1] =c("Profit_Asset_Turnover_AVG")
+profit[2,1] =c("Profit_Return_Assets%")
+profit[3,1] =c("Profit_Return_Equity%")
+profit[4,1] =c("Profit_Return_Invested_Capital%")
+#profit[,12]=NA
+
+grow = rbind(growth[c(12,17),])
+colnames(grow) = vec
+grow[1,1] =c("Grow_Net_Income%_YOY")
+grow[2,1] =c("Grow_EPS%_YOY")
+
+cf = rbind(cash_flow[5,])
+colnames(cf) = vec
+cf[1,1] = c("CF_Free_Cash_Flow_to_Net_Income")
+#cf[,12]=NA
+
+
+liquid = rbind(Liquidity[1:4,])
+colnames(liquid) = vec
+liquid[1,1] =c("Liquid_Current_Ratio")
+liquid[2,1] =c("Liquid_Quick_Ratio")
+liquid[3,1] =c("Liquid_Financial_Leverage")
+liquid[4,1] =c("Liquid_Debt_to_Equity")
+
+
+eff_ratio = rbind(efficiency_ratios[1:8,])
+colnames(eff_ratio) = vec
+eff_ratio[1,1] =c("Eff_Ratio_Days_Sales_Outstanding")
+eff_ratio[2,1] =c("Eff_Ratio_Days_Inventory")
+eff_ratio[3,1] =c("Eff_Ratio_Payables_Period")
+eff_ratio[4,1] =c("Eff_Ratio_Cash_Conversion_Cycle")
+eff_ratio[5,1] =c("Eff_Ratio_Receivables_Turnover")
+eff_ratio[6,1] =c("Eff_Ratio_Inventory_Turnover")
+eff_ratio[7,1] =c("Eff_Ratio_Fixed_Assets_Turnover")
+eff_ratio[8,1] =c("Eff_Ratio_Asset_Turnover")
+#eff_ratio[,12]=NA
+
+final_df = rbind(finan,mar_sales,profit,grow,cf,liquid,eff_ratio)
+
+
+rm(finan,mar_sales,profit,grow,cf,liquid,eff_ratio,vec)
+rm(cash_flow,efficiency_ratios,financial_health,Financials,growth,Liquidity,margin_sales,Profitability)
+
+# converted the dF to features
+final_df = final_df %>% gather("Year","n",2:12)%>% spread(variables,n)
+
+#convert dividend and to true and false
+final_df$Finan_Net_Income = as.numeric(gsub(",","",final_df$Finan_Net_Income))
+final_df$Finan_Shares_Mil = as.numeric(gsub(",","",final_df$Finan_Shares_Mil))
+
+final_df$Finan_Dividend = as.numeric(final_df$Finan_Dividend)
+
+#convert net income and dividend to true or false
+#income true if positive
+#dividend true if given by company
+
+final_df$Finan_Net_Income = ifelse(final_df$Finan_Net_Income<0|is.na(final_df$Finan_Net_Income),0,1)
+
+final_df$Finan_Dividend = ifelse(final_df$Finan_Dividend<0|is.na(final_df$Finan_Dividend),0,1)
+
+#----------------------read tech output and merge----------------
+tech_file = read.csv("Output/tech_8k_1.2.2008-11.15.2018TSLA.csv",strip.white = T,stringsAsFactors=FALSE,as.is = TRUE)
+
+#tech_file$Symbol = "F"
+tech_file$YEAR = substr(tech_file$Day, start = 1, stop = 4)
+tech_file$Date = ymd(tech_file$Day)  
+
+File_interest$Date = ymd(File_interest$Date)
+
+#Final Merge
+
+Output =tech_file %>% left_join(File_interest,by = c("Date"="Date")) %>%left_join(final_df,by = c("YEAR"="Year"))
+  
+  
+
+Output$y = NULL
+Output$YEAR = NULL
+Output$Date = NULL
+write.csv(Output,"Output/Output_file_Tesla-tech.csv",row.names = F,na = "")
+
+rm(final_df,Output,tech_file)
+
+```
